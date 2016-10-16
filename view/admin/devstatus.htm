@@ -1,0 +1,151 @@
+<%
+	local fs = require "nixio.fs"
+	local util = require "luci.util"
+	local stat = require "luci.tools.status"
+	local ver = require "luci.version"
+
+	local sysinfo = luci.util.ubus("system", "info") or { }
+	local boardinfo = luci.util.ubus("system", "board") or { }
+	local unameinfo = nixio.uname() or { }
+
+	local meminfo = sysinfo.memory or {
+		total = 0,
+		free = 0,
+		buffered = 0,
+		shared = 0
+	}
+	local cpuinfo = {
+		total1=1,
+		free1=0,
+		total2=1,
+		free2=0
+	}
+	
+	local has_procstat = fs.access("/proc/stat")
+	
+	local proc_stat_1 =  fs.readfile("/proc/stat") or ""
+	if(proc_stat_1 ~= "") then
+		local cpu_line1 =string.match(proc_stat_1,"cpu%s(.+)cpu")
+		local p1,p2,p3,p4,p5,p6,p7=string.match(cpu_line1, "(%d+)%s(%d+)%s(%d+)%s(%d+)%s(%d+)%s(%d+)%s(%d+)")
+		cpuinfo.total1 = p1+p2+p3+p4+p5+p6+p7
+		cpuinfo.free1=p4
+	
+	end
+	luci.sys.exec("sleep 1s")
+	local proc_stat_2 = fs.readfile("/proc/stat") or ""
+	if(proc_stat_2 ~= "") then
+		local cpu_line2 =string.match(proc_stat_2,"cpu%s(.+)cpu")
+		local p1,p2,p3,p4,p5,p6,p7=string.match(cpu_line2, "(%d+)%s(%d+)%s(%d+)%s(%d+)%s(%d+)%s(%d+)%s(%d+)")
+		cpuinfo.total2 = p1+p2+p3+p4+p5+p6+p7
+		cpuinfo.free2=p4
+	
+	end
+	
+	if luci.http.formvalue("status") == "1" then
+		local ntm = require "luci.model.network".init()
+		local wan = ntm:get_wannet()
+		local wan6 = ntm:get_wan6net()
+
+		local conn_count = tonumber((
+			luci.sys.exec("wc -l /proc/net/nf_conntrack") or
+			luci.sys.exec("wc -l /proc/net/ip_conntrack") or
+			""):match("%d+")) or 0
+
+		local conn_max = tonumber((
+			luci.sys.exec("sysctl net.nf_conntrack_max") or
+			luci.sys.exec("sysctl net.ipv4.netfilter.ip_conntrack_max") or
+			""):match("%d+")) or 4096
+
+		local rv = {
+			uptime     = sysinfo.uptime or 0,
+			localtime  = os.date(),
+			loadavg    = sysinfo.load or { 0, 0, 0 },
+			memory     = meminfo,
+			connmax    = conn_max,
+			conncount  = conn_count,
+			leases     = stat.dhcp_leases(),
+			leases6    = stat.dhcp6_leases(),
+			wifinets   = stat.wifi_networks(),
+			cpu  	   = cpuinfo
+		}
+
+		
+
+		luci.http.prepare_content("application/json")
+		luci.http.write_json(rv)
+
+		return
+	end
+-%>
+
+<%+header%>
+
+<script type="text/javascript" src="<%=resource%>/cbi.js"></script>
+<script type="text/javascript">//<![CDATA[
+	function percent(v,m)
+	{
+		var vn = parseInt(v) || 0;
+		var mn = parseInt(m) || 100;
+		var pc = Math.floor((100 / mn) * vn);
+		return pc+" %";
+	}
+
+	var wifidevs = <%=luci.http.write_json(netdevs)%>;
+	var arptable = <%=luci.http.write_json(arpcache)%>;
+
+	XHR.poll(5, '<%=REQUEST_URI%>', { status: 1 },
+		function(x, info)
+		{
+
+
+			var e;
+			
+			if(e=document.getElementById('cpupc'))
+				e.innerHTML = percent( (info.cpu.total2-info.cpu.total1)-(info.cpu.free2-info.cpu.free1),info.cpu.total2-info.cpu.total1);
+			if(e=document.getElementById('mempc'))
+				e.innerHTML = percent(info.memory.total-info.memory.free,info.memory.total);
+
+			if (e = document.getElementById('uptime'))
+				e.innerHTML = String.format('%t', info.uptime);
+			if (e = document.getElementById('conncount'))
+				e.innerHTML = String.format('%d 活动Link', info.conncount);
+			
+
+		}
+	);
+//]]></script>
+
+<h2><a id="content" name="content">设备系统信息</a></h2>
+
+<fieldset class="cbi-section">
+	<legend>设备系统信息</legend>
+
+	<table width="100%" cellspacing="10">
+	
+		<tr><td width="33%">CPU信息</td><td><%=pcdata(boardinfo.model or boardinfo.system or "?")%></td></tr>		
+		<tr><td width="33%">内存信息</td><td id="meminfo"><%=pcdata(meminfo.total/1024) .. "KB"%></td></tr>
+		<tr><td width="33%">接口Link状态</td><td id="conncount">-</td></tr>
+		<tr><td width="33%">CPU占用率</td><td id="cpupc">-</td></tr>
+		<tr><td width="33%">内存占用率</td><td id="mempc">-</td></tr>
+		<tr><td width="33%">运行时间</td><td id="uptime">-</td></tr>
+		<tr><td width="33%">版本</td><td>
+			<%=pcdata(ver.distname)%> <%=pcdata(ver.distversion)%>
+		</td></tr>		
+		
+	</table>
+</fieldset>
+
+
+<%-
+	local incdir = util.libpath() .. "/view/admin_status/index/"
+	if fs.access(incdir) then
+		local inc
+		for inc in fs.dir(incdir) do
+			if inc:match("%.htm$") then
+				include("admin_status/index/" .. inc:gsub("%.htm$", ""))
+			end
+		end
+	end
+-%>
+
+<%+footer%>
