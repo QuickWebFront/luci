@@ -10,11 +10,12 @@ function index()
 
 	page = node("admin", "network")
 	page.target = firstchild()
-	page.title  = _("Network")
-	page.order  = 50
+	page.title  = _("接口参数配置")
+	page.order  = 3
 	page.index  = true
 
 --	if page.inreq then
+--[[
 		local has_switch = false
 
 		uci:foreach("network", "switch",
@@ -81,7 +82,8 @@ function index()
 			end
 		end
 
-
+--]]
+		entry({"admin", "network","hostname"}, cbi("admin/hostname"), "主机名配置", 1)
 		page = entry({"admin", "network", "iface_add"}, cbi("admin_network/iface_add"), nil)
 		page.leaf = true
 
@@ -97,7 +99,7 @@ function index()
 		page = entry({"admin", "network", "iface_shutdown"}, call("iface_shutdown"), nil)
 		page.leaf = true
 
-		page = entry({"admin", "network", "network"}, arcombine(cbi("admin_network/network"), cbi("admin_network/ifaces")), _("Interfaces"), 10)
+		page = entry({"admin", "network", "network"}, arcombine(cbi("admin_network/network"), cbi("admin_network/ifaces")), _("接口IP配置"), 10)
 		page.leaf   = true
 		page.subindex = true
 
@@ -112,7 +114,7 @@ function index()
 				end)
 		end
 
-
+--[[
 		if nixio.fs.access("/etc/config/dhcp") then
 			page = node("admin", "network", "dhcp")
 			page.target = cbi("admin_network/dhcp")
@@ -132,7 +134,9 @@ function index()
 		page.target = cbi("admin_network/routes")
 		page.title  = _("Static Routes")
 		page.order  = 50
+--]]
 
+--[[
 		page = node("admin", "network", "diagnostics")
 		page.target = template("admin_network/diagnostics")
 		page.title  = _("Diagnostics")
@@ -152,6 +156,7 @@ function index()
 
 		page = entry({"admin", "network", "diag_traceroute6"}, call("diag_traceroute6"), nil)
 		page.leaf = true
+	--]]
 --	end
 end
 

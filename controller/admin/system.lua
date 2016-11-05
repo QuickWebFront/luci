@@ -35,6 +35,7 @@ function index()
 	entry({"admin", "system", "flashops", "backupfiles"}, form("admin_system/backupfiles"))
 
 	entry({"admin", "system", "reboot"}, call("action_reboot"), _("Reboot"), 90)
+
 end
 
 function action_clock_status()

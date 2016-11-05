@@ -5,10 +5,24 @@ function index()
 	entry({"admin", "devstatus"}, alias("admin", "devstatus", "overview"), _("设备系统信息"), 1).index = true
 	entry({"admin", "devstatus","overview"}, template("admin/devstatus"), "设备系统信息", 1)
 	--接口参数配置
+	--[[
+	local uci = require("luci.model.uci").cursor()
 	entry({"admin", "interface"}, alias("admin", "interface", "hostname"), _("接口参数配置"), 2)
-	entry({"admin", "interface","hostname"}, cbi("admin/hostname"), "主机名配置", 1)
-	entry({"admin", "interface","ipcfg"}, cbi("admin/interface"), "接口IP配置", 2)
+	--entry({"admin", "interface","hostname"}, cbi("admin/hostname"), "主机名配置", 1)
+	page = entry({"admin", "interface", "ipcfg"}, arcombine(cbi("admin/network"), cbi("admin/interface")), _("接口IP配置"), 2)
+	page.leaf   = true
+	page.subindex = true
+	uci:foreach("network", "interface",
+		function (section)
+			local ifc = section[".name"]
+			if ifc ~= "loopback" then
+				entry({"admin", "interface", "ipcfg", ifc},
+				true, ifc:upper())
+			end
+		end)
+	--entry({"admin", "interface","ipcfg"}, cbi("admin/interface"), "接口IP配置", 2)
 	entry({"admin", "interface","dhcpcfg"}, template("helloworld"), "DHCP配置", 3)
+	--]]
 	--链路配置
 	entry({"admin", "linkcfg"}, alias("admin", "interface", "encapsulate"), _("链路配置"), 3)
 	entry({"admin", "linkcfg","encapsulate"}, template("helloworld"), "封装方式配置", 1)

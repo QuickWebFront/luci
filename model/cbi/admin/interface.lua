@@ -47,7 +47,8 @@ end
 
 -- redirect to overview page if network does not exist anymore (e.g. after a revert)
 if not net then
-	luci.http.redirect(luci.dispatcher.build_url("admin/network/network"))
+	--luci.http.redirect(luci.dispatcher.build_url("admin/network/network"))
+	luci.http.redirect(luci.dispatcher.build_url("admin/interface/ipcfg"))
 	return
 end
 
